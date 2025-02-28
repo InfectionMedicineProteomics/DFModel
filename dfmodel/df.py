@@ -9,39 +9,43 @@ class DigitalFamilyBinary:
                  bootstrap_replace: bool = False, n_neighbors: int = 10, neighbor_metric: str = 'euclidean',):
         self.bootstrap_results_df = None
         self.bootstrap_columns = None
-        self.data_ = None
         self.bootstrap_iterations = bootstrap_iterations
         self.bootstrap_fraction = bootstrap_fraction
         self.bootstrap_replace = bootstrap_replace
         self.n_neighbors = n_neighbors
         self.neighbor_metric = neighbor_metric
+        self.estimators_ = []
+        self.data_ = []
 
-    def fit(self, X):
-
-        self.data_ = X
-
-    def predict(self, X, feature_columns: list[str], target_column: str):
-
-        bootstrap_results = {}
+    def fit(self, X, features: list[str]):
 
         for bootstrap in range(self.bootstrap_iterations):
 
-            X_sample = self.data_.sample(
+            X_sample = X.sample(
                 frac=self.bootstrap_fraction,
                 replace=self.bootstrap_replace,
                 random_state=bootstrap,
             )
-
-            X_test_subset = X.copy()
 
             neighbors = NearestNeighbors(
                 n_neighbors=self.n_neighbors,
                 metric=self.neighbor_metric,
             )
 
-            neighbors.fit(X_sample[feature_columns])
+            neighbors.fit(X_sample[features]) # removed feature columns
 
-            distances, knn_results = neighbors.kneighbors(X_test_subset[feature_columns], return_distance=True)
+            self.estimators_.append(neighbors)
+            self.data_.append(X_sample)
+
+    def predict(self, X, features: list[str], target_column: str):
+
+        bootstrap_results = {}
+
+        for bootstrap, estimator in enumerate(self.estimators_):
+
+            X_test_subset = X.copy()
+
+            distances, knn_results = estimator.kneighbors(X_test_subset[features], return_distance=True)
 
             neighborhood_sizes = []
             mean_distance = []
@@ -53,7 +57,7 @@ class DigitalFamilyBinary:
 
                 if knn_idx.size > 0:
 
-                    neighborhood = X_sample.iloc[knn_idx, :].copy()
+                    neighborhood = self.data_[bootstrap].iloc[knn_idx, :].copy()
 
                     neighborhood_sizes.append(neighborhood.shape[0])
 
