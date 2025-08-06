@@ -1,3 +1,5 @@
+from collections import Counter
+
 import pandas as pd
 import numpy as np
 import networkx as nx
@@ -23,6 +25,8 @@ class DigitalFamilyBinary:
 
     def fit(self, X, features: list[str]):
 
+        edge_counts = Counter()
+
         for bootstrap in range(self.bootstrap_iterations):
 
             X_sample = X.sample(
@@ -37,6 +41,15 @@ class DigitalFamilyBinary:
             )
 
             neighbors.fit(X_sample[features]) # removed feature columns
+
+            distances, knn_results = neighbors.kneighbors(X_sample[features], return_distance=True)
+
+            neighborhood_sizes = []
+            mean_distance = []
+            target_probabilities = []
+
+            for i in range(knn_results.shape[0]):
+                knn_idx = knn_results[i, :]
 
             self.estimators_.append(neighbors)
             self.data_.append(X_sample)
@@ -129,8 +142,8 @@ class DigitalFamilyBinary:
 
         return patient_specific_graph
 
+    def neighbors(self, X, features: list[str]):
 
+        distances, knn_results = self.full_estimator.kneighbors(X[features], return_distance=True)
 
-
-
-
+        return distances, knn_results
