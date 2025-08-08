@@ -25,8 +25,6 @@ class DigitalFamilyBinary:
 
     def fit(self, X, features: list[str]):
 
-        edge_counts = Counter()
-
         for bootstrap in range(self.bootstrap_iterations):
 
             X_sample = X.sample(
@@ -41,15 +39,6 @@ class DigitalFamilyBinary:
             )
 
             neighbors.fit(X_sample[features]) # removed feature columns
-
-            distances, knn_results = neighbors.kneighbors(X_sample[features], return_distance=True)
-
-            neighborhood_sizes = []
-            mean_distance = []
-            target_probabilities = []
-
-            for i in range(knn_results.shape[0]):
-                knn_idx = knn_results[i, :]
 
             self.estimators_.append(neighbors)
             self.data_.append(X_sample)
@@ -80,18 +69,56 @@ class DigitalFamilyBinary:
 
 
 
-    def predict(self, X, features: list[str], target_column: str):
+    def predict(self, X, features: list[str], target_column: str, bootstrap: bool = False):
 
-        bootstrap_results = {}
+        results = []
 
-        for bootstrap, estimator in enumerate(self.estimators_):
+        if bootstrap:
+            bootstrap_results = {}
 
-            X_test_subset = X.copy()
+            for bootstrap, estimator in enumerate(self.estimators_):
 
-            distances, knn_results = estimator.kneighbors(X_test_subset[features], return_distance=True)
+                X_test_subset = X.copy()
 
-            neighborhood_sizes = []
-            mean_distance = []
+                distances, knn_results = estimator.kneighbors(X_test_subset[features], return_distance=True)
+
+                neighborhood_sizes = []
+                mean_distance = []
+                target_probabilities = []
+
+                for i in range(knn_results.shape[0]):
+
+                    knn_idx = knn_results[i, :]
+
+                    if knn_idx.size > 0:
+
+                        neighborhood = self.data_[bootstrap].iloc[knn_idx, :].copy()
+
+                        neighborhood_sizes.append(neighborhood.shape[0])
+
+                        mean_distance.append(
+                            distances[i].mean()
+                        )
+
+                        target_binary_vector = np.where(neighborhood[target_column] == 1, 1, 0)
+
+                        target_binary_probability = target_binary_vector.sum() / neighborhood.shape[0]
+
+                        target_probabilities.append(target_binary_probability)
+
+                bootstrap_results[f"target_bootstrap_{bootstrap}"] = target_probabilities
+
+            # TODO: remove this, I don't think that these columns need to be set like this
+            self.bootstrap_columns = list(bootstrap_results.keys())
+
+            self.bootstrap_results_df = pd.DataFrame(bootstrap_results)
+
+            results = self.bootstrap_results_df[self.bootstrap_columns].mean(axis=1)
+
+        else:
+
+            distances, knn_results = self.full_estimator.kneighbors(X[features], return_distance=True)
+
             target_probabilities = []
 
             for i in range(knn_results.shape[0]):
@@ -100,13 +127,7 @@ class DigitalFamilyBinary:
 
                 if knn_idx.size > 0:
 
-                    neighborhood = self.data_[bootstrap].iloc[knn_idx, :].copy()
-
-                    neighborhood_sizes.append(neighborhood.shape[0])
-
-                    mean_distance.append(
-                        distances[i].mean()
-                    )
+                    neighborhood = self.X_.iloc[knn_idx, :].copy()
 
                     target_binary_vector = np.where(neighborhood[target_column] == 1, 1, 0)
 
@@ -114,14 +135,9 @@ class DigitalFamilyBinary:
 
                     target_probabilities.append(target_binary_probability)
 
-            bootstrap_results[f"target_bootstrap_{bootstrap}"] = target_probabilities
+            results = target_probabilities
 
-        # TODO: remove this, I don't think that these columns need to be set like this
-        self.bootstrap_columns = list(bootstrap_results.keys())
-
-        self.bootstrap_results_df = pd.DataFrame(bootstrap_results)
-
-        return self.bootstrap_results_df[self.bootstrap_columns].mean(axis=1)
+        return results
 
     
     def model_sample(self, sample_data, features: list[str]):
