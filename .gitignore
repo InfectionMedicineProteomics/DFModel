@@ -30,4 +30,5 @@ target/
 
 # IDE settings
 .vscode/
+.venv/
 

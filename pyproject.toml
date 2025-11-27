@@ -1,0 +1,26 @@
+[project]
+name = "dfmodel"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "Aaron Scott",email = "aaron.scott@med.lu.se"}
+]
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "pandas",
+    "numpy",
+    "scikit-learn",
+    "seaborn",
+    "jupyterlab",
+    "networkx (>=3.5,<4.0)",
+    "fa2-modified (>=0.3.10,<0.4.0)",
+    "pandas-stubs (>=2.3.0.250703,<3.0.0.0)",
+    "black (>=25.1.0,<26.0.0)",
+    "mypy (>=1.17.1,<2.0.0)"
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
